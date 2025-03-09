@@ -34,7 +34,7 @@ class ImportCommand(Command):
         self.skip_existing = args.skip_existing
         self.recursive = recursive
         self.shallow = shallow
-
+        self.bare = args.bare  # Add bare property
 
 def get_parser():
     parser = argparse.ArgumentParser(
@@ -50,6 +50,9 @@ def get_parser():
     group.add_argument(
         '--shallow', action='store_true', default=False,
         help='Create a shallow clone without a history')
+    group.add_argument(  # Add bare clone option
+        '--bare', action='store_true', default=False,
+        help='Create a bare clone')
     group.add_argument(
         '--recursive', action='store_true', default=False,
         help='Recurse into submodules')

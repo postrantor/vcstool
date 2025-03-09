@@ -393,6 +393,8 @@ class GitClient(VcsClientBase):
                     checkout_version = command.version
                 if command.shallow:
                     cmd_clone += ['--depth', '1']
+                if command.bare:  # Add bare clone support
+                    cmd_clone += ['--bare']
                 result_clone = self._run_command(
                     cmd_clone, retry=command.retry)
                 if result_clone['returncode']:
