@@ -80,7 +80,7 @@ def main(args=None, stdout=None, stderr=None):
 
     results = execute_jobs(
         jobs, show_progress=True, number_of_workers=args.workers,
-        debug_jobs=args.debug)
+        debug_jobs=args.debug, verbose_progress=args.verbose)
 
     output_results(results, hide_empty=args.hide_empty)
 

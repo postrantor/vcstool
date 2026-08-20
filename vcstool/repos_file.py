@@ -15,6 +15,7 @@ TREE_OPTION_KEYS = {
     'retry',
     'shallow',
     'skip_existing',
+    'verbose',
     'workers',
 }
 
@@ -101,7 +102,7 @@ def extract_tree_options(mapping):
             continue
         if name in (
             'bare', 'debug', 'force', 'mirror', 'recursive', 'repos',
-            'shallow', 'skip_existing'
+            'shallow', 'skip_existing', 'verbose'
         ):
             options[name] = bool(value)
         elif name in ('retry', 'workers'):

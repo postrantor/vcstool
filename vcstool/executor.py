@@ -5,6 +5,8 @@ import sys
 import threading
 import traceback
 
+import yaml
+
 logger = logging.getLogger(__name__)
 logging.basicConfig()
 
@@ -78,8 +80,37 @@ def get_ready_job(jobs):
     return None
 
 
+def format_progress_yaml(result, index, total):
+    client = result['client']
+    command = result.get('command')
+    entry = {
+        'progress': '%d/%d' % (index, total),
+        'path': fix_output_path(client.path),
+        'type': client.__class__.type,
+    }
+    if command is not None:
+        url = getattr(command, 'url', None)
+        if url:
+            entry['url'] = url
+        version = getattr(command, 'version', None)
+        if version:
+            entry['version'] = version
+    if result['returncode'] == NotImplemented:
+        entry['result'] = 'skipped'
+    elif result['returncode']:
+        entry['result'] = 'error'
+    else:
+        entry['result'] = 'ok'
+    return yaml.safe_dump(
+        [entry],
+        default_flow_style=False,
+        allow_unicode=True,
+        sort_keys=False)
+
+
 def execute_jobs(
-    jobs, show_progress=False, number_of_workers=10, debug_jobs=False
+    jobs, show_progress=False, number_of_workers=10, debug_jobs=False,
+    verbose_progress=False
 ):
     global windows_force_posix
     from vcstool.streams import stdout
@@ -120,18 +151,23 @@ def execute_jobs(
         (job, result) = result_queue.get()
         logger.debug("finished '%s'" % job['client'].path)
         running_job_paths.remove(result['job']['client'].path)
-        if show_progress and len(jobs) > 1:
-            if result['returncode'] == NotImplemented:
-                stdout.write('s')
-            elif result['returncode']:
-                stdout.write('E')
-            else:
-                stdout.write('.')
-            if debug_jobs:
-                stdout.write('\n')
-            stdout.flush()
         result.update(job)
         results.append(result)
+        if show_progress:
+            if verbose_progress:
+                stdout.write(format_progress_yaml(
+                    result, len(results), len(jobs)))
+                stdout.flush()
+            elif len(jobs) > 1:
+                if result['returncode'] == NotImplemented:
+                    stdout.write('s')
+                elif result['returncode']:
+                    stdout.write('E')
+                else:
+                    stdout.write('.')
+                if debug_jobs:
+                    stdout.write('\n')
+                stdout.flush()
         if pending_jobs:
             for pending_job in pending_jobs:
                 pending_job.get('depends', set()).discard(job['client'].path)
@@ -145,7 +181,10 @@ def execute_jobs(
             assert running_job_paths
         if running_job_paths:
             logger.debug('ongoing ' + str(running_job_paths))
-    if show_progress and len(jobs) > 1 and not debug_jobs:
+    if (
+        show_progress and len(jobs) > 1 and
+        not debug_jobs and not verbose_progress
+    ):
         print('', file=stdout)  # finish progress line
 
     # join all workers

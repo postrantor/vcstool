@@ -18,6 +18,7 @@ class Command(object):
         self.hide_empty = args.hide_empty if 'hide_empty' in args else False
         self.nested = args.nested if 'nested' in args else False
         self.output_repos = args.repos if 'repos' in args else False
+        self.verbose = args.verbose if 'verbose' in args else False
         if 'paths' in args:
             self.paths = args.paths
         else:
@@ -44,6 +45,10 @@ def add_common_arguments(
     group.add_argument(
         '--debug', action='store_true', default=False,
         help='Show debug messages')
+    group.add_argument(
+        '-v', '--verbose', action='store_true', default=False,
+        help='Show per-repository YAML progress '
+             '(- progress: N/total) instead of dots')
     if not skip_hide_empty:
         group.add_argument(
             '-s', '--hide-empty', '--skip-empty', action='store_true',
@@ -96,7 +101,7 @@ def simple_main(parser, command_class, args=None):
     jobs = generate_jobs(clients, command)
     results = execute_jobs(
         jobs, show_progress=True, number_of_workers=args.workers,
-        debug_jobs=args.debug)
+        debug_jobs=args.debug, verbose_progress=args.verbose)
 
     output_results(results, hide_empty=args.hide_empty)
 

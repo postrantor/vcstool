@@ -1,3 +1,4 @@
+from io import StringIO
 import os
 import subprocess
 import tempfile
@@ -65,6 +66,7 @@ class TestTreeOptionSchema(unittest.TestCase):
             'workers': 6,
             'debug': True,
             'repos': True,
+            'verbose': True,
             'unknown': 'ignore',
         })
         self.assertEqual(options['bare'], True)
@@ -77,6 +79,7 @@ class TestTreeOptionSchema(unittest.TestCase):
         self.assertEqual(options['workers'], 6)
         self.assertEqual(options['debug'], True)
         self.assertEqual(options['repos'], True)
+        self.assertEqual(options['verbose'], True)
         self.assertNotIn('manifest', options)
         self.assertNotIn('unknown', options)
 
@@ -484,6 +487,54 @@ class TestTreeImport(unittest.TestCase):
             '    manifest: a.repos\n')
         rc = import_main(['--tree', a])
         self.assertEqual(rc, 1)
+
+    def test_verbose_prints_yaml_progress(self):
+        dest = os.path.join(self.tmpdir, 'dest-verbose')
+        os.makedirs(dest)
+        repos = os.path.join(self.tmpdir, 'verbose.repos')
+        _write(
+            repos,
+            'repositories:\n' +
+            _repos_entry('foo', _file_url(self.foo)) +
+            _repos_entry('bar', _file_url(self.bar)))
+        buf = StringIO()
+        rc = import_main(
+            ['--input', repos, '--verbose', '--workers', '1', dest],
+            stdout=buf, stderr=buf)
+        self.assertEqual(rc, 0)
+        text = buf.getvalue()
+        self.assertIn('- progress: 1/2', text)
+        self.assertIn('- progress: 2/2', text)
+        self.assertIn('result: ok', text)
+        self.assertIn('type: git', text)
+        self.assertIn(_file_url(self.foo), text)
+        self.assertIn(os.path.join(dest, 'foo'), text)
+        self.assertIn(os.path.join(dest, 'bar'), text)
+        self.assertNotRegex(text, r'(?m)^\.\.$')
+
+    def test_verbose_from_tree_option(self):
+        workspace = os.path.join(self.tmpdir, 'verbose-tree')
+        root = os.path.join(workspace, 'root.repos')
+        child = os.path.join(workspace, 'child', 'child.repos')
+        _write(
+            root,
+            'tree:\n'
+            '  child:\n'
+            '    manifest: child/child.repos\n'
+            '    mirror: true\n'
+            '    verbose: true\n')
+        _write(
+            child,
+            'repositories:\n' +
+            _repos_entry('foo', _file_url(self.foo)))
+        buf = StringIO()
+        rc = import_main(['--tree', root, '--workers', '1'], stdout=buf)
+        self.assertEqual(rc, 0)
+        text = buf.getvalue()
+        self.assertIn('- progress: 1/1', text)
+        self.assertIn('result: ok', text)
+        self.assertIn(
+            os.path.join(workspace, 'child', 'foo.git'), text)
 
 
 if __name__ == '__main__':

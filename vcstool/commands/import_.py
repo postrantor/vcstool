@@ -192,16 +192,21 @@ def main(args=None, stdout=None, stderr=None):
         if parsed.tree:
             jobs = []
             tree_workers = []
+            tree_verbose = False
             for base_dir, repos, options in collect_from_tree(
                 parsed.tree, manifest_names=parsed.manifests
             ):
                 tree_args = _overlay_args(parsed, options)
                 if 'workers' in options:
                     tree_workers.append(options['workers'])
+                if options.get('verbose'):
+                    tree_verbose = True
                 jobs.extend(
                     generate_jobs(repos, tree_args, dest_base=base_dir))
             if tree_workers:
                 parsed.workers = max(tree_workers)
+            if tree_verbose:
+                parsed.verbose = True
         else:
             input_ = parsed.input
             if input_ is None:
@@ -255,7 +260,7 @@ def main(args=None, stdout=None, stderr=None):
 
     results = execute_jobs(
         jobs, show_progress=True, number_of_workers=workers,
-        debug_jobs=parsed.debug)
+        debug_jobs=parsed.debug, verbose_progress=parsed.verbose)
     output_results(results)
 
     any_error = any(r['returncode'] for r in results)

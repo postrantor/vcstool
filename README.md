@@ -105,9 +105,26 @@ tree:
     workers: 6 # -w / --workers N
     debug: false # --debug
     repos: false # --repos
+    verbose: false # -v / --verbose
 ```
 
 仅 `import` 支持伪客户端 `tar` 和 `zip`: 从 URL 拉取归档并解压。这两种类型的 `version` 可选；若指定，只解压归档中该子目录下的内容。
+
+默认进度用 `.` / `E` / `s` 表示完成、失败、跳过。`--repos` 只在开始前打印路径，`--debug` 只给每个点换行并打内部日志，都不会在进行中展开仓库信息。`-v` / `--verbose` 改为按完成顺序输出 YAML，并带 `- progress: 1/3` 数字进度 (url / version 在 `import` 等有清单的命令里会出现):
+
+```bash
+vcs import --tree ~/.repositories/ai2rob/ai2rob.repos -v
+vcs fetch -v
+```
+
+```yaml
+- progress: 1/3
+  path: /home/trantor/.repositories/ai2rob/ab-x/yi_rt.git
+  type: git
+  url: ssh://git@git.ai2rob.com:8022/robot/ab-x/yi_rt.git
+  version: master
+  result: ok
+```
 
 ## 更新已有仓库
 

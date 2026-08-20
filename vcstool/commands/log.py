@@ -23,7 +23,9 @@ class LogCommand(Command):
 
 def get_parser():
     parser = argparse.ArgumentParser(
-        description='Show commit logs', prog='vcs log')
+        description='Show commit logs. --verbose prints the full '
+                    'commit message and YAML progress.',
+        prog='vcs log')
     group = parser.add_argument_group('"log" command parameters')
     group.add_argument(
         '-l', '--limit', metavar='N', type=int, default=3,
@@ -38,9 +40,6 @@ def get_parser():
     group.add_argument(
         '--merge-only', action='store_true', default=False,
         help='Show only merge commits')
-    group.add_argument(
-        '--verbose', action='store_true', default=False,
-        help='Show the full commit message')
     return parser
 
 

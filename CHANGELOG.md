@@ -4,6 +4,12 @@
 
 ## Unreleased
 
+## 0.3.2 - 2026-08-20
+
+### 新增
+
+- `-v` / `--verbose`: 各命令在进行中按仓库输出 YAML 进度 (`- progress: 1/3`、path、type，`import` 还会带 url / version)，替代默认的 `.` / `E` / `s`。`tree` 条目可写 `verbose: true`。`vcs log --verbose` 仍打印完整提交说明。
+
 ## 0.3.1 - 2026-08-20
 
 ### 新增
