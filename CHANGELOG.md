@@ -4,6 +4,12 @@
 
 ## Unreleased
 
+## 0.3.3 - 2026-08-20
+
+### 行为
+
+- `vcs import --tree` 兼容同文件的 `repositories`: 先导入本层仓库，再跟随 `tree`。`--manifests` 只筛选 `tree` 键，不会带上入口文件的本层 `repositories`。`--input` 仍只读 `repositories`，忽略 `tree`。
+
 ## 0.3.2 - 2026-08-20
 
 ### 新增

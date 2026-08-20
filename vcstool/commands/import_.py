@@ -54,9 +54,9 @@ def get_parser():
         metavar='FILE_OR_URL')
     group.add_argument(
         '--tree', type=tree_path_type, default=None, metavar='PATH',
-        help='Import nested .repos via the tree field only. '
-             'PATH may be a tree file (follows tree.<name>.manifest) '
-             'or a directory. repositories in tree files are ignored. '
+        help='Import nested .repos via the tree field, and also '
+             'repositories in the same file. PATH may be a tree file '
+             '(follows tree.<name>.manifest) or a directory. '
              'Cannot be used with --input')
     group.add_argument(
         '--manifests', nargs='+', metavar='NAME', default=None,

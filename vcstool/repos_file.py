@@ -258,12 +258,12 @@ def _collect_document(
     options = merge_options(inherited, doc['options'])
     stack.append(path)
     try:
+        if doc['repositories'] and (selected or names is None):
+            groups.append((
+                os.path.dirname(path), doc['repositories'], options))
         if doc['tree']:
             _follow_tree(
                 path, doc, names, visited, stack, groups, matched, options)
-        elif selected and doc['repositories']:
-            groups.append((
-                os.path.dirname(path), doc['repositories'], options))
     finally:
         stack.pop()
     if selected or doc['tree']:

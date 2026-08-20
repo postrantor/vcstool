@@ -80,14 +80,15 @@ vcs import < my.repos
 
 `--tree` 与 `--input` 相互解耦:
 
-- `--tree` 只解析 `tree` 字段，忽略 `repositories`
+- `--tree` 跟随 `tree`，并兼容同文件的 `repositories` (混合清单一次拉全)
 - `--input` 只解析 `repositories` 字段，忽略 `tree`
 
-`tree` 的每个条目用 `manifest` 指向另一份相对路径下的 `.repos` 文件，其余子字段对应 `vcs import` 的同名参数。条目里的值优先于命令行。`--manifests NAME [NAME ...]` 与配置中的 `tree` 键取交集。完整 schema 见仓库管理根目录的 `repos` 示例。
+`tree` 的每个条目用 `manifest` 指向另一份相对路径下的 `.repos` 文件，其余子字段对应 `vcs import` 的同名参数。条目里的值优先于命令行。`--manifests NAME [NAME ...]` 与配置中的 `tree` 键取交集，不会导入入口文件自己的 `repositories`；被选中的混合子清单仍会导入其本层仓库。完整 schema 见仓库管理根目录的 `repos` 示例。
 
 ```bash
-vcs import --tree ~/.repositories/repos
-vcs import --tree ~/.repositories/repos --manifests ai2rob
+vcs import --tree ~/.repositories/ai2rob/ai2rob.repos
+vcs import --tree ~/.repositories/ai2rob/robocore-iii/robocore-iii.repos
+vcs import --tree ~/.repositories/ai2rob/ai2rob.repos --manifests robocore-iii
 vcs import --input ./robocore-iii.repos --mirror --force
 ```
 

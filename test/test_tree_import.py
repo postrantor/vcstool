@@ -196,7 +196,7 @@ class TestTreeCollect(unittest.TestCase):
         self.assertEqual(len(filtered), 1)
         self.assertEqual(filtered[0][0], os.path.dirname(child))
 
-    def test_tree_ignores_local_repositories(self):
+    def test_tree_includes_local_repositories(self):
         root = os.path.join(self.tmpdir, 'mixed.repos')
         child = os.path.join(self.tmpdir, 'child', 'child.repos')
         _write(
@@ -212,7 +212,15 @@ class TestTreeCollect(unittest.TestCase):
             _repos_entry('foo', 'file:///tmp/foo'))
         groups = collect_from_tree_file(root)
         paths = {name for _base, repos, _opts in groups for name in repos}
-        self.assertEqual(paths, {'foo'})
+        self.assertEqual(paths, {'foo', 'local'})
+        by_base = {base: repos for base, repos, _opts in groups}
+        self.assertIn('local', by_base[os.path.dirname(root)])
+        self.assertIn('foo', by_base[os.path.dirname(child)])
+
+        filtered = collect_from_tree_file(root, manifest_names=['child'])
+        filtered_paths = {
+            name for _base, repos, _opts in filtered for name in repos}
+        self.assertEqual(filtered_paths, {'foo'})
 
     def test_cycle_and_missing(self):
         a = os.path.join(self.tmpdir, 'a.repos')
@@ -440,7 +448,7 @@ class TestTreeImport(unittest.TestCase):
         self._run_import(['--input', repos, dest])
         self.assertTrue(GitClient.is_repository(os.path.join(dest, 'foo')))
 
-    def test_tree_ignores_mixed_repositories(self):
+    def test_tree_imports_mixed_repositories(self):
         workspace = os.path.join(self.tmpdir, 'mixed-ws')
         root = os.path.join(workspace, 'mixed.repos')
         child = os.path.join(workspace, 'child', 'child.repos')
@@ -459,7 +467,12 @@ class TestTreeImport(unittest.TestCase):
         self._run_import(['--tree', root])
         cloned = os.path.join(workspace, 'child', 'foo.git')
         self.assertTrue(GitClient.is_bare_repository(cloned))
-        self.assertFalse(os.path.exists(os.path.join(workspace, 'local.git')))
+        self.assertTrue(GitClient.is_repository(os.path.join(workspace, 'local')))
+
+        rmtree(os.path.join(workspace, 'child', 'foo.git'))
+        rmtree(os.path.join(workspace, 'local'))
+        self._run_import(['--tree', root, '--manifests', 'child'])
+        self.assertTrue(GitClient.is_bare_repository(cloned))
         self.assertFalse(os.path.exists(os.path.join(workspace, 'local')))
 
     def test_tree_rejects_input(self):
