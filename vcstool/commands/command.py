@@ -88,7 +88,9 @@ def simple_main(parser, command_class, args=None):
     args = parser.parse_args(args)
 
     command = command_class(args)
-    clients = find_repositories(command.paths, nested=command.nested)
+    clients = find_repositories(
+        command.paths, nested=command.nested,
+        include_bare=getattr(command, 'include_bare', False))
     if command.output_repos:
         output_repositories(clients)
     jobs = generate_jobs(clients, command)

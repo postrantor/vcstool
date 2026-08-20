@@ -32,9 +32,23 @@ class GitClient(VcsClientBase):
 
     @staticmethod
     def is_bare_repository(path):
-        return (
+        if not (
             os.path.isfile(os.path.join(path, 'HEAD')) and
-            os.path.isdir(os.path.join(path, 'objects')))
+            os.path.isdir(os.path.join(path, 'objects'))
+        ):
+            return False
+        # A work tree's .git directory also has HEAD + objects.
+        executable = GitClient._executable or 'git'
+        try:
+            output = subprocess.check_output(
+                [
+                    executable, '--git-dir', path, 'rev-parse',
+                    '--is-bare-repository',
+                ],
+                stderr=subprocess.DEVNULL)
+        except (OSError, subprocess.CalledProcessError):
+            return False
+        return output.decode('utf8').strip() == 'true'
 
     @classmethod
     def is_git_dir(cls, path):
@@ -612,6 +626,57 @@ class GitClient(VcsClientBase):
             cmd += ['--pretty=short']
         self._check_color(cmd)
         return self._run_command(cmd)
+
+    def fetch(self, command):
+        self._check_executable()
+        prune = getattr(command, 'prune', True)
+        if GitClient.is_bare_repository(self.path):
+            return self._fetch_bare(prune)
+        cmd = [GitClient._executable, 'fetch', '--all']
+        cmd.append('--prune' if prune else '--no-prune')
+        cmd.append('--tags')
+        self._check_color(cmd)
+        return self._run_command(cmd)
+
+    def _fetch_bare(self, prune):
+        prune_arg = '--prune' if prune else '--no-prune'
+        if self._is_mirror():
+            cmd = [GitClient._executable, 'fetch', prune_arg]
+            return self._run_command(cmd)
+
+        remote = self._default_remote()
+        if not remote:
+            return {
+                'cmd': '',
+                'cwd': self.path,
+                'output': 'Could not determine a remote to fetch from',
+                'returncode': 1,
+            }
+        # A plain `git clone --bare` often has no fetch refspec, so the
+        # default fetch only updates FETCH_HEAD.
+        cmd = [
+            GitClient._executable, 'fetch', prune_arg, remote,
+            '+refs/heads/*:refs/heads/*',
+            '+refs/tags/*:refs/tags/*',
+        ]
+        return self._run_command(cmd)
+
+    def _is_mirror(self):
+        cmd = [
+            GitClient._executable, 'config', '--bool', '--get',
+            'remote.origin.mirror']
+        result = self._run_command(cmd)
+        return not result['returncode'] and result['output'] == 'true'
+
+    def _default_remote(self):
+        cmd = [GitClient._executable, 'remote']
+        result = self._run_command(cmd)
+        if result['returncode'] or not result['output']:
+            return None
+        remotes = result['output'].splitlines()
+        if 'origin' in remotes:
+            return 'origin'
+        return remotes[0]
 
     def pull(self, _command):
         self._check_executable()

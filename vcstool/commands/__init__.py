@@ -2,6 +2,7 @@ from .branch import BranchCommand
 from .custom import CustomCommand
 from .diff import DiffCommand
 from .export import ExportCommand
+from .fetch import FetchCommand
 from .import_ import ImportCommand
 from .log import LogCommand
 from .pull import PullCommand
@@ -15,6 +16,7 @@ vcstool_commands.append(BranchCommand)
 vcstool_commands.append(CustomCommand)
 vcstool_commands.append(DiffCommand)
 vcstool_commands.append(ExportCommand)
+vcstool_commands.append(FetchCommand)
 vcstool_commands.append(ImportCommand)
 vcstool_commands.append(LogCommand)
 vcstool_commands.append(PullCommand)

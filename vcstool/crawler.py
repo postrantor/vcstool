@@ -3,21 +3,24 @@ import os
 from . import vcstool_clients
 
 
-def find_repositories(paths, nested=False):
+def find_repositories(paths, nested=False, include_bare=False):
     repos = []
     visited = []
     for path in paths:
-        _find_repositories(path, repos, visited, nested=nested)
+        _find_repositories(
+            path, repos, visited, nested=nested, include_bare=include_bare)
     return repos
 
 
-def _find_repositories(path, repos, visited, nested=False):
+def _find_repositories(
+    path, repos, visited, nested=False, include_bare=False
+):
     abs_path = os.path.abspath(path)
     if abs_path in visited:
         return
     visited.append(abs_path)
 
-    client = get_vcs_client(path)
+    client = get_vcs_client(path, include_bare=include_bare)
     if client:
         repos.append(client)
         if not nested:
@@ -31,11 +34,19 @@ def _find_repositories(path, repos, visited, nested=False):
         subpath = os.path.join(path, name)
         if not os.path.isdir(subpath):
             continue
-        _find_repositories(subpath, repos, visited, nested=nested)
+        _find_repositories(
+            subpath, repos, visited, nested=nested,
+            include_bare=include_bare)
 
 
-def get_vcs_client(path):
+def get_vcs_client(path, include_bare=False):
     for client_class in vcstool_clients:
         if client_class.is_repository(path):
+            return client_class(path)
+        if (
+            include_bare and
+            hasattr(client_class, 'is_bare_repository') and
+            client_class.is_bare_repository(path)
+        ):
             return client_class(path)
     return None

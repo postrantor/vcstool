@@ -93,21 +93,36 @@ vcs import --input ./robocore-iii.repos --mirror --force
 
 ```yaml
 tree:
-  <name>:                          # 供 --manifests 取交集
-    manifest: <relpath>            # 必填，相对本文件
-    mirror: true                   # --mirror (优先于 bare)
-    bare: false                    # --bare
-    force: true                    # --force
-    shallow: false                 # --shallow
-    recursive: false               # --recursive
-    skip_existing: false           # --skip-existing
-    retry: 2                       # --retry N
-    workers: 6                     # -w / --workers N
-    debug: false                   # --debug
-    repos: false                   # --repos
+  <name>: # 供 --manifests 取交集
+    manifest: <relpath> # 必填，相对本文件
+    mirror: true # --mirror (优先于 bare)
+    bare: false # --bare
+    force: true # --force
+    shallow: false # --shallow
+    recursive: false # --recursive
+    skip_existing: false # --skip-existing
+    retry: 2 # --retry N
+    workers: 6 # -w / --workers N
+    debug: false # --debug
+    repos: false # --repos
 ```
 
 仅 `import` 支持伪客户端 `tar` 和 `zip`: 从 URL 拉取归档并解压。这两种类型的 `version` 可选；若指定，只解压归档中该子目录下的内容。
+
+## 更新已有仓库
+
+`vcs fetch` 从远端拉取引用，不修改工作树检出。它会递归发现普通工作树，也会发现裸库和 `--mirror` 克隆的镜像库。`vcs pull` 既找不到裸库/镜像库，也不能在其上运行 `git pull`。
+
+```bash
+vcs fetch
+vcs fetch --no-prune
+```
+
+- 工作树: `git fetch --all --prune --tags`
+- 镜像库: `git fetch --prune` (沿用 `clone --mirror` 写好的 `refs/*` 映射)
+- 普通裸库: 显式抓取 `refs/heads/*` 和 `refs/tags/*` (普通 `--bare` 克隆通常没有 fetch refspec, 默认 `git fetch` 只更新 `FETCH_HEAD`)
+
+默认会 prune 远端已删除的引用，用 `--no-prune` 关闭。
 
 ## 校验仓库清单
 

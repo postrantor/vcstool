@@ -1,8 +1,10 @@
 # Changelog
 
-本文件记录相对上游 [dirk-thomas/vcstool](https://github.com/dirk-thomas/vcstool) 的可见变化。版本号沿用上游 `0.3.0`，下列条目描述本仓库 `t/dev` 上的扩展。
+本文件记录相对上游 [dirk-thomas/vcstool](https://github.com/dirk-thomas/vcstool) 的可见变化。本仓库在上游 `0.3.0` 之上自行递增小版本。
 
 ## Unreleased
+
+## 0.3.1 - 2026-08-20
 
 ### 新增
 
@@ -12,6 +14,7 @@
 - `vcs import --tree PATH`: 递归导入嵌套 `.repos`。`PATH` 可以是含 `tree` 字段的清单，或在目录下查找这类清单。每个 `manifest` 在其所在目录就地导入。
 - `tree.<name>.manifest`: 用相对路径指向另一份 `.repos`。条目可写 `mirror`、`bare`、`force`、`shallow`、`recursive`、`skip_existing`、`retry`、`workers`，这些值优先于命令行。`mirror` 与 `bare` 同时出现时以 `mirror` 为准。
 - `vcs import --tree PATH --manifests NAME [NAME ...]`: 与配置中的 `tree` 键取交集，只导入满足条件的子树。
+- `vcs fetch`: 从远端更新工作树、裸库和镜像库，不修改检出。仅该命令会扫描裸库，避免 `pull` / `status` 把镜像库当工作树处理。默认会 prune，可用 `--no-prune` 关闭。
 
 ### 行为
 
