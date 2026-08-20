@@ -9,6 +9,7 @@ TREE_OPTION_KEYS = {
     'bare',
     'debug',
     'force',
+    'mirror',
     'recursive',
     'repos',
     'retry',
@@ -22,9 +23,9 @@ TREE_OPTION_ALIASES = {
 }
 
 
-def resolve_clone_path(rel_path, dest_base, bare):
+def resolve_clone_path(rel_path, dest_base, bare, mirror=False):
     rel_path = rel_path.rstrip('/\\')
-    if bare and not rel_path.endswith('.git'):
+    if (bare or mirror) and not rel_path.endswith('.git'):
         rel_path = rel_path + '.git'
     return os.path.join(dest_base, rel_path)
 
@@ -99,7 +100,7 @@ def extract_tree_options(mapping):
         if name not in TREE_OPTION_KEYS:
             continue
         if name in (
-            'bare', 'debug', 'force', 'recursive', 'repos',
+            'bare', 'debug', 'force', 'mirror', 'recursive', 'repos',
             'shallow', 'skip_existing'
         ):
             options[name] = bool(value)

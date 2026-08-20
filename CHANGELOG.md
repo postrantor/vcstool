@@ -7,9 +7,10 @@
 ### 新增
 
 - `vcs import --bare`: 按裸库克隆。清单路径键若不以 `.git` 结尾，目标目录自动补上该后缀；已带 `.git` 则不再追加。不加 `--bare` 时路径完全按清单原样使用。
+- `vcs import --mirror`: 按镜像克隆 (隐含裸库，拉取全部 refs)。与 `--bare` 并列；同时指定时 `--mirror` 优先。目标目录同样自动补 `.git`。
 - 裸库二次导入: 识别已有裸库 (`HEAD` + `objects`)，跳过 `checkout` / `submodule`，避免把裸库当成普通工作树。
 - `vcs import --tree PATH`: 递归导入嵌套 `.repos`。`PATH` 可以是含 `tree` 字段的清单，或在目录下查找这类清单。每个 `manifest` 在其所在目录就地导入。
-- `tree.<name>.manifest`: 用相对路径指向另一份 `.repos`。条目可写 `bare`、`force`、`shallow`、`recursive`、`skip_existing`、`retry`、`workers`，这些值优先于命令行。
+- `tree.<name>.manifest`: 用相对路径指向另一份 `.repos`。条目可写 `mirror`、`bare`、`force`、`shallow`、`recursive`、`skip_existing`、`retry`、`workers`，这些值优先于命令行。`mirror` 与 `bare` 同时出现时以 `mirror` 为准。
 - `vcs import --tree PATH --manifests NAME [NAME ...]`: 与配置中的 `tree` 键取交集，只导入满足条件的子树。
 
 ### 行为

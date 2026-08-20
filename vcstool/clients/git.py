@@ -394,17 +394,25 @@ class GitClient(VcsClientBase):
                     return result_version_type
                 version_type = result_version_type['version_type']
 
-            if not command.shallow or version_type in (None, 'branch'):
+            if (
+                getattr(command, 'mirror', False) or
+                not command.shallow or
+                version_type in (None, 'branch')
+            ):
                 cmd_clone = [GitClient._executable, 'clone', command.url, '.']
-                if version_type == 'branch':
-                    cmd_clone += ['-b', version_name]
+                if getattr(command, 'mirror', False):
+                    cmd_clone += ['--mirror']
                     checkout_version = None
                 else:
-                    checkout_version = command.version
-                if command.shallow:
-                    cmd_clone += ['--depth', '1']
-                if command.bare:  # Add bare clone support
-                    cmd_clone += ['--bare']
+                    if version_type == 'branch':
+                        cmd_clone += ['-b', version_name]
+                        checkout_version = None
+                    else:
+                        checkout_version = command.version
+                    if command.shallow:
+                        cmd_clone += ['--depth', '1']
+                    if command.bare:
+                        cmd_clone += ['--bare']
                 result_clone = self._run_command(
                     cmd_clone, retry=command.retry)
                 if result_clone['returncode']:
@@ -453,6 +461,7 @@ class GitClient(VcsClientBase):
 
         if (
             checkout_version and
+            not getattr(command, 'mirror', False) and
             not command.bare and
             not GitClient.is_bare_repository(self.path)
         ):
@@ -473,6 +482,7 @@ class GitClient(VcsClientBase):
 
         if (
             command.recursive and
+            not getattr(command, 'mirror', False) and
             not command.bare and
             not GitClient.is_bare_repository(self.path)
         ):

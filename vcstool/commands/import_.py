@@ -37,7 +37,10 @@ class ImportCommand(Command):
         self.skip_existing = args.skip_existing
         self.recursive = recursive
         self.shallow = shallow
-        self.bare = args.bare
+        self.mirror = bool(getattr(args, 'mirror', False))
+        self.bare = bool(getattr(args, 'bare', False))
+        if self.mirror:
+            self.bare = False
 
 
 def get_parser():
@@ -69,7 +72,12 @@ def get_parser():
     group.add_argument(
         '--bare', action='store_true', default=False,
         help='Create a bare clone and append .git to the destination '
-             'path if it is missing')
+             'path if it is missing. Overridden by --mirror')
+    group.add_argument(
+        '--mirror', action='store_true', default=False,
+        help='Create a mirror clone (implies bare, fetches all refs) '
+             'and append .git to the destination path if it is missing. '
+             'Takes precedence over --bare')
     group.add_argument(
         '--recursive', action='store_true', default=False,
         help='Recurse into submodules')
@@ -116,8 +124,9 @@ def generate_jobs(repos, args, dest_base=None):
     if dest_base is None:
         dest_base = args.path
     bare = bool(getattr(args, 'bare', False))
+    mirror = bool(getattr(args, 'mirror', False))
     for path, repo in repos.items():
-        path = resolve_clone_path(path, dest_base, bare)
+        path = resolve_clone_path(path, dest_base, bare, mirror=mirror)
         clients = [c for c in vcstool_clients if c.type == repo['type']]
         if not clients:
             from vcstool.clients.none import NoneClient

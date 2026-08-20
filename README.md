@@ -76,7 +76,7 @@ vcs import < my.repos
 
 `import` 也支持 [rosinstall 文件格式](http://www.ros.org/doc/independent/api/rosinstall/html/rosinstall_file_format.html)。除了本地文件路径，还可以传入 URL。
 
-`--bare` 会按裸库方式克隆。若 YAML 路径键尚未以 `.git` 结尾，会自动补上该后缀。不加 `--bare` 时，目标目录完全按清单中的路径原样使用。
+`--mirror` 按镜像克隆 (包含全部引用，隐含裸库)。`--bare` 按普通裸库克隆。两者都会在路径键未以 `.git` 结尾时自动补上该后缀。同时指定时 `--mirror` 优先。都不加时，目标目录完全按清单中的路径原样使用。
 
 `--tree` 与 `--input` 相互解耦:
 
@@ -88,14 +88,15 @@ vcs import < my.repos
 ```bash
 vcs import --tree ~/.repositories/repos
 vcs import --tree ~/.repositories/repos --manifests ai2rob
-vcs import --input ./robocore-iii.repos --bare --force
+vcs import --input ./robocore-iii.repos --mirror --force
 ```
 
 ```yaml
 tree:
   <name>:                          # 供 --manifests 取交集
     manifest: <relpath>            # 必填，相对本文件
-    bare: true                     # --bare
+    mirror: true                   # --mirror (优先于 bare)
+    bare: false                    # --bare
     force: true                    # --force
     shallow: false                 # --shallow
     recursive: false               # --recursive

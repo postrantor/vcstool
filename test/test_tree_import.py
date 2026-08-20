@@ -55,6 +55,7 @@ class TestTreeOptionSchema(unittest.TestCase):
         options = extract_tree_options({
             'manifest': 'child/child.repos',
             'bare': True,
+            'mirror': True,
             'force': True,
             'shallow': False,
             'recursive': True,
@@ -67,6 +68,7 @@ class TestTreeOptionSchema(unittest.TestCase):
             'unknown': 'ignore',
         })
         self.assertEqual(options['bare'], True)
+        self.assertEqual(options['mirror'], True)
         self.assertEqual(options['force'], True)
         self.assertEqual(options['shallow'], False)
         self.assertEqual(options['recursive'], True)
@@ -92,6 +94,11 @@ class TestResolveClonePath(unittest.TestCase):
     def test_bare_keeps_existing_suffix(self):
         self.assertEqual(
             resolve_clone_path('foo.git', '/tmp', True),
+            os.path.join('/tmp', 'foo.git'))
+
+    def test_mirror_appends_git(self):
+        self.assertEqual(
+            resolve_clone_path('foo', '/tmp', False, mirror=True),
             os.path.join('/tmp', 'foo.git'))
 
     def test_non_bare_keeps_path(self):
@@ -160,12 +167,12 @@ class TestTreeCollect(unittest.TestCase):
             'tree:\n'
             '  child:\n'
             '    manifest: child/child.repos\n'
-            '    bare: true\n'
+            '    mirror: true\n'
             '    force: true\n'
             '    workers: 6\n'
             '  sibling:\n'
             '    manifest: sibling/sibling.repos\n'
-            '    bare: false\n')
+            '    mirror: false\n')
         _write(
             child,
             'repositories:\n' +
@@ -178,9 +185,9 @@ class TestTreeCollect(unittest.TestCase):
         groups = collect_from_tree_file(root)
         self.assertEqual(len(groups), 2)
         by_base = {base: (repos, opts) for base, repos, opts in groups}
-        self.assertTrue(by_base[os.path.dirname(child)][1]['bare'])
+        self.assertTrue(by_base[os.path.dirname(child)][1]['mirror'])
         self.assertEqual(by_base[os.path.dirname(child)][1]['workers'], 6)
-        self.assertFalse(by_base[os.path.dirname(sibling)][1]['bare'])
+        self.assertFalse(by_base[os.path.dirname(sibling)][1]['mirror'])
 
         filtered = collect_from_tree_file(root, manifest_names=['child'])
         self.assertEqual(len(filtered), 1)
@@ -260,6 +267,41 @@ class TestTreeImport(unittest.TestCase):
         self.assertTrue(GitClient.is_bare_repository(cloned))
         self.assertFalse(os.path.exists(os.path.join(dest, 'foo')))
 
+    def test_mirror_suffix_from_input(self):
+        dest = os.path.join(self.tmpdir, 'dest-mirror')
+        os.makedirs(dest)
+        repos = os.path.join(self.tmpdir, 'single-mirror.repos')
+        _write(
+            repos,
+            'repositories:\n' +
+            _repos_entry('foo', _file_url(self.foo)))
+        self._run_import(
+            ['--input', repos, '--mirror', dest])
+        cloned = os.path.join(dest, 'foo.git')
+        self.assertTrue(GitClient.is_bare_repository(cloned))
+        self.assertEqual(
+            subprocess.check_output(
+                ['git', 'config', '--get', 'remote.origin.mirror'],
+                cwd=cloned).decode().strip(),
+            'true')
+
+    def test_mirror_wins_over_bare(self):
+        dest = os.path.join(self.tmpdir, 'dest-both')
+        os.makedirs(dest)
+        repos = os.path.join(self.tmpdir, 'single-both.repos')
+        _write(
+            repos,
+            'repositories:\n' +
+            _repos_entry('foo', _file_url(self.foo)))
+        self._run_import(
+            ['--input', repos, '--bare', '--mirror', dest])
+        cloned = os.path.join(dest, 'foo.git')
+        self.assertEqual(
+            subprocess.check_output(
+                ['git', 'config', '--get', 'remote.origin.mirror'],
+                cwd=cloned).decode().strip(),
+            'true')
+
     def test_non_bare_keeps_key(self):
         dest = os.path.join(self.tmpdir, 'dest-worktree')
         os.makedirs(dest)
@@ -297,7 +339,7 @@ class TestTreeImport(unittest.TestCase):
             'tree:\n'
             '  child:\n'
             '    manifest: child/child.repos\n'
-            '    bare: true\n')
+            '    mirror: true\n')
         _write(
             child,
             'repositories:\n' +
@@ -318,10 +360,10 @@ class TestTreeImport(unittest.TestCase):
             'tree:\n'
             '  child:\n'
             '    manifest: child/child.repos\n'
-            '    bare: true\n'
+            '    mirror: true\n'
             '  sibling:\n'
             '    manifest: sibling/sibling.repos\n'
-            '    bare: true\n')
+            '    mirror: true\n')
         _write(
             os.path.join(child_dir, 'child.repos'),
             'repositories:\n' +
@@ -365,7 +407,7 @@ class TestTreeImport(unittest.TestCase):
             'tree:\n'
             '  child:\n'
             '    manifest: child/child.repos\n'
-            '    bare: true\n')
+            '    mirror: true\n')
         _write(
             child,
             'repositories:\n' +
@@ -404,7 +446,7 @@ class TestTreeImport(unittest.TestCase):
             'tree:\n'
             '  child:\n'
             '    manifest: child/child.repos\n'
-            '    bare: true\n'
+            '    mirror: true\n'
             'repositories:\n' +
             _repos_entry('local', _file_url(self.bar)))
         _write(
