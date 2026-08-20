@@ -2,10 +2,10 @@ import argparse
 import sys
 
 from vcstool.clients import vcstool_clients
-from vcstool.commands.import_ import get_repositories
 from vcstool.executor import ansi
 from vcstool.executor import execute_jobs
 from vcstool.executor import output_results
+from vcstool.repos_file import get_repositories
 from vcstool.streams import set_streams
 
 from .command import add_common_arguments

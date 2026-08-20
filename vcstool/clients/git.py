@@ -30,6 +30,16 @@ class GitClient(VcsClientBase):
     def is_repository(path):
         return os.path.isdir(os.path.join(path, '.git'))
 
+    @staticmethod
+    def is_bare_repository(path):
+        return (
+            os.path.isfile(os.path.join(path, 'HEAD')) and
+            os.path.isdir(os.path.join(path, 'objects')))
+
+    @classmethod
+    def is_git_dir(cls, path):
+        return cls.is_repository(path) or cls.is_bare_repository(path)
+
     def __init__(self, path):
         super(GitClient, self).__init__(path)
 
@@ -232,7 +242,7 @@ class GitClient(VcsClientBase):
             }
 
         self._check_executable()
-        if GitClient.is_repository(self.path):
+        if GitClient.is_git_dir(self.path):
             # verify that existing repository is the same
             result_urls = self._get_remote_urls()
             if result_urls['returncode']:
@@ -282,7 +292,7 @@ class GitClient(VcsClientBase):
         if not_exist:
             return not_exist
 
-        if GitClient.is_repository(self.path):
+        if GitClient.is_git_dir(self.path):
             if command.skip_existing:
                 checkout_version = None
             elif command.version:
@@ -441,7 +451,11 @@ class GitClient(VcsClientBase):
 
                 checkout_version = command.version
 
-        if checkout_version:
+        if (
+            checkout_version and
+            not command.bare and
+            not GitClient.is_bare_repository(self.path)
+        ):
             cmd_checkout = [
                 GitClient._executable, 'checkout', checkout_version, '--']
             result_checkout = self._run_command(cmd_checkout)
@@ -457,7 +471,11 @@ class GitClient(VcsClientBase):
             cmd += ' && ' + ' '.join(cmd_checkout)
             output = '\n'.join([output, result_checkout['output']])
 
-        if command.recursive:
+        if (
+            command.recursive and
+            not command.bare and
+            not GitClient.is_bare_repository(self.path)
+        ):
             cmd_submodule = [
                 GitClient._executable, 'submodule', 'update', '--init',
                 '--recursive']

@@ -1,4 +1,5 @@
 import argparse
+import copy
 import os
 from shutil import which
 import sys
@@ -11,8 +12,10 @@ from vcstool.executor import ansi
 from vcstool.executor import execute_jobs
 from vcstool.executor import output_repositories
 from vcstool.executor import output_results
+from vcstool.repos_file import collect_from_tree
+from vcstool.repos_file import get_repositories
+from vcstool.repos_file import resolve_clone_path
 from vcstool.streams import set_streams
-import yaml
 
 from .command import add_common_arguments
 from .command import Command
@@ -34,15 +37,28 @@ class ImportCommand(Command):
         self.skip_existing = args.skip_existing
         self.recursive = recursive
         self.shallow = shallow
-        self.bare = args.bare  # Add bare property
+        self.bare = args.bare
+
 
 def get_parser():
     parser = argparse.ArgumentParser(
         description='Import the list of repositories', prog='vcs import')
     group = parser.add_argument_group('"import" command parameters')
     group.add_argument(
-        '--input', type=file_or_url_type, default='-',
-        help='Where to read YAML from', metavar='FILE_OR_URL')
+        '--input', type=file_or_url_type, default=None,
+        help='Where to read YAML from (default: stdin). '
+             'Cannot be used with --tree',
+        metavar='FILE_OR_URL')
+    group.add_argument(
+        '--tree', type=tree_path_type, default=None, metavar='PATH',
+        help='Import nested .repos via the tree field only. '
+             'PATH may be a tree file (follows tree.<name>.manifest) '
+             'or a directory. repositories in tree files are ignored. '
+             'Cannot be used with --input')
+    group.add_argument(
+        '--manifests', nargs='+', metavar='NAME', default=None,
+        help='Only import tree entries whose names intersect this list. '
+             'Requires --tree')
     group.add_argument(
         '--force', action='store_true', default=False,
         help="Delete existing directories if they don't contain the "
@@ -50,9 +66,10 @@ def get_parser():
     group.add_argument(
         '--shallow', action='store_true', default=False,
         help='Create a shallow clone without a history')
-    group.add_argument(  # Add bare clone option
+    group.add_argument(
         '--bare', action='store_true', default=False,
-        help='Create a bare clone')
+        help='Create a bare clone and append .git to the destination '
+             'path if it is missing')
     group.add_argument(
         '--recursive', action='store_true', default=False,
         help='Recurse into submodules')
@@ -76,86 +93,31 @@ def file_or_url_type(value):
         value, headers={'User-Agent': 'vcstool/' + vcstool_version})
 
 
-def get_repositories(yaml_file):
-    try:
-        root = yaml.safe_load(yaml_file)
-    except yaml.YAMLError as e:
-        raise RuntimeError('Input data is not valid yaml format: %s' % e)
-
-    try:
-        repositories = root['repositories']
-        return get_repos_in_vcstool_format(repositories)
-    except KeyError as e:
-        raise RuntimeError('Input data is not valid format: %s' % e)
-    except TypeError as e:
-        # try rosinstall file format
-        try:
-            return get_repos_in_rosinstall_format(root)
-        except Exception:
-            raise RuntimeError('Input data is not valid format: %s' % e)
+def tree_path_type(value):
+    if not os.path.exists(value):
+        raise argparse.ArgumentTypeError("Path '%s' does not exist." % value)
+    if not os.path.isdir(value) and not os.path.isfile(value):
+        raise argparse.ArgumentTypeError(
+            "Path '%s' is not a file or directory." % value)
+    return value
 
 
-def get_repos_in_vcstool_format(repositories):
-    repos = {}
-    if repositories is None:
-        print(
-            ansi('yellowf') + 'List of repositories is empty' + ansi('reset'),
-            file=sys.stderr)
-        return repos
-    for path in repositories:
-        repo = {}
-        attributes = repositories[path]
-        try:
-            repo['type'] = attributes['type']
-            repo['url'] = attributes['url']
-            if 'version' in attributes:
-                repo['version'] = attributes['version']
-        except KeyError as e:
-            print(
-                ansi('yellowf') + (
-                    "Repository '%s' does not provide the necessary "
-                    'information: %s' % (path, e)) + ansi('reset'),
-                file=sys.stderr)
-            continue
-        repos[path] = repo
-    return repos
+def _overlay_args(args, options):
+    if not options:
+        return args
+    merged = copy.copy(args)
+    for key, value in options.items():
+        setattr(merged, key, value)
+    return merged
 
 
-def get_repos_in_rosinstall_format(root):
-    repos = {}
-    for i, item in enumerate(root):
-        if len(item.keys()) != 1:
-            raise RuntimeError('Input data is not valid format')
-        repo = {'type': list(item.keys())[0]}
-        attributes = list(item.values())[0]
-        try:
-            path = attributes['local-name']
-        except KeyError as e:
-            print(
-                ansi('yellowf') + (
-                    'Repository #%d does not provide the necessary '
-                    'information: %s' % (i, e)) + ansi('reset'),
-                file=sys.stderr)
-            continue
-        try:
-            repo['url'] = attributes['uri']
-            if 'version' in attributes:
-                repo['version'] = attributes['version']
-        except KeyError as e:
-            print(
-                ansi('yellowf') + (
-                    "Repository '%s' does not provide the necessary "
-                    'information: %s' % (path, e)) + ansi('reset'),
-                file=sys.stderr)
-            continue
-        repos[path] = repo
-    return repos
-
-
-def generate_jobs(repos, args):
+def generate_jobs(repos, args, dest_base=None):
     jobs = []
+    if dest_base is None:
+        dest_base = args.path
+    bare = bool(getattr(args, 'bare', False))
     for path, repo in repos.items():
-        path = os.path.join(args.path, path)
+        path = resolve_clone_path(path, dest_base, bare)
         clients = [c for c in vcstool_clients if c.type == repo['type']]
         if not clients:
             from vcstool.clients.none import NoneClient
@@ -201,22 +163,53 @@ def main(args=None, stdout=None, stderr=None):
     add_common_arguments(
         parser, skip_hide_empty=True, skip_nested=True, path_nargs='?',
         path_help='Base path to clone repositories to')
-    args = parser.parse_args(args)
+    parsed = parser.parse_args(args)
+    if parsed.tree and parsed.input is not None:
+        print(
+            ansi('redf') +
+            '--tree and --input cannot be used together' +
+            ansi('reset'),
+            file=sys.stderr)
+        return 1
+    if parsed.manifests and not parsed.tree:
+        print(
+            ansi('redf') +
+            '--manifests requires --tree' +
+            ansi('reset'),
+            file=sys.stderr)
+        return 1
+
     try:
-        input_ = args.input
-        if isinstance(input_, request.Request):
-            input_ = request.urlopen(input_)
-        repos = get_repositories(input_)
-    except (RuntimeError, request.URLError) as e:
+        if parsed.tree:
+            jobs = []
+            tree_workers = []
+            for base_dir, repos, options in collect_from_tree(
+                parsed.tree, manifest_names=parsed.manifests
+            ):
+                tree_args = _overlay_args(parsed, options)
+                if 'workers' in options:
+                    tree_workers.append(options['workers'])
+                jobs.extend(
+                    generate_jobs(repos, tree_args, dest_base=base_dir))
+            if tree_workers:
+                parsed.workers = max(tree_workers)
+        else:
+            input_ = parsed.input
+            if input_ is None:
+                input_ = argparse.FileType('r')('-')
+            if isinstance(input_, request.Request):
+                input_ = request.urlopen(input_)
+            repos = get_repositories(input_)
+            jobs = generate_jobs(repos, parsed)
+    except (RuntimeError, request.URLError, OSError) as e:
         print(ansi('redf') + str(e) + ansi('reset'), file=sys.stderr)
         return 1
-    jobs = generate_jobs(repos, args)
     add_dependencies(jobs)
 
-    if args.repos:
+    if parsed.repos:
         output_repositories([job['client'] for job in jobs])
 
-    workers = args.workers
+    workers = parsed.workers
     # for ssh URLs check if the host is known to prevent ssh asking for
     # confirmation when using more than one worker
     if workers > 1:
@@ -253,7 +246,7 @@ def main(args=None, stdout=None, stderr=None):
 
     results = execute_jobs(
         jobs, show_progress=True, number_of_workers=workers,
-        debug_jobs=args.debug)
+        debug_jobs=parsed.debug)
     output_results(results)
 
     any_error = any(r['returncode'] for r in results)
